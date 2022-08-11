@@ -1,0 +1,176 @@
+//for Ant filter
+import org.apache.tools.ant.filters.ReplaceTokens
+
+project.group = "com.communi.suggestu.formula"
+project.version = project.localVersion
+
+subprojects { subProject ->
+    subProject.apply { configure ->
+        configure.plugin("idea")
+        configure.plugin("java")
+        configure.plugin("java-library")
+        configure.plugin("maven-publish")
+    }
+
+    subProject.repositories.mavenLocal()
+    subProject.repositories.mavenCentral()
+    subProject.repositories.maven {
+        name 'LDTTeam - Modding'
+        url 'https://ldtteam.jfrog.io/ldtteam/modding/'
+    }
+
+    subProject.group = rootProject.group
+    subProject.version = rootProject.version
+
+    subProject.java.toolchain.languageVersion.set(JavaLanguageVersion.of(project.javaVersion))
+
+    subProject.tasks.jar.baseName = "${rootProject.name}-${subProject.name}"
+    subProject.tasks.jar.manifest.attributes([
+            'Maven-Artifact'          : "${project.group}:${project.archivesBaseName}:${project.version}",
+            "Specification-Title"     : project.name,
+            "Specification-Vendor"    : project.owner,
+            "Specification-Version"   : project.version,
+            "Implementation-Title"    : project.name,
+            "Implementation-Version"  : project.version,
+            "Implementation-Vendor"   : project.owner,
+            "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
+            "Automatic-Module-Name"   : project.name,
+            "MixinConfigs"            : "${rootProject.name.toLowerCase()}.mixins.json"
+    ])
+    subProject.tasks.jar.duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    subProject.publishing.repositories.maven {
+        name 'InternalDirectory'
+        url 'file://' + rootProject.file('repo').getAbsolutePath()
+    }
+
+    subProject.dependencies.compileOnly "org.jetbrains:annotations:${project.jetbrainsAnnotationsVersion}"
+    subProject.dependencies.testCompileOnly "org.jetbrains:annotations:${project.jetbrainsAnnotationsVersion}"
+
+    subProject.ext.cleanMavenPublication = { mavenPublication ->
+        //Replace all deobf dependencies with normal jar references.
+        mavenPublication.pom.withXml { xmlProvider ->
+            def dependencies = asNode().dependencies
+            def allDeps = dependencies.'*';
+
+            // Remove forge, minecraft and ourselves as deps
+            allDeps.findAll() { el ->
+                (el.artifactId.text() == 'forge' && el.groupId.text() == 'net.minecraftforge') ||
+                        (el.artifactId.text() == 'joined' && el.groupId.text() == 'net.minecraft') ||
+                        (el.groupId.text() == 'com.communi-coresuggestu.scena') ||
+                        (el.groupId.text() == 'com.communi-suggestu.saecularia-caudices')
+            }.forEach() { el ->
+                el.parent().remove(el)
+            }
+
+            //remove forgegradle's mapped suffix from versions & set as optional so anyone else doesn't inherit them
+            allDeps.findAll() { el ->
+                el.version.text().contains('_mapped_')
+            }.each { el ->
+                def version = el.version
+                version.each {
+                    it.setValue(it.text().substring(0, it.text().indexOf('_mapped_')))
+                }
+            }
+        }
+    }
+
+    subProject.ext.disableCompiling = {
+        subProject.tasks.build.enabled = false
+        subProject.tasks.jar.enabled = false
+        subProject.tasks.processResources.enabled = false
+        subProject.tasks.assemble.enabled = false
+        subProject.tasks.compileJava.enabled = false
+        subProject.tasks.classes.enabled = false
+        subProject.tasks.test.enabled = false
+    }
+
+    subProject.ext.disableForgeGradleCompiling = {
+        subProject.afterEvaluate { evaluatedProject ->
+            evaluatedProject.tasks.reobfJar.enabled = false
+        }
+    }
+
+    subProject.ext.addCoreProject = {
+        subProject.dependencies.implementation(subProject.project(":core")) {
+            transitive = false
+        }
+
+        subProject.tasks.jar.from subProject.project(":core").sourceSets.main.resources
+        subProject.tasks.processResources.from subProject.project(":core").sourceSets.main.resources
+        subProject.tasks.processResources.inputs.property "version", subProject.version
+        subProject.tasks.processResources.duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
+
+    subProject.ext.getIdentifiers = {
+        def propertiesToExpand = [
+                "version"                   : project.version,
+                "name"                      : rootProject.name.toString(),
+                "id"                        : rootProject.name.toLowerCase().toString(),
+                "description"               : (rootProject.description == null ? "" : rootProject.description).toString(),
+                "author"                    : rootProject.author.toString(),
+                "sources"                   : rootProject.githubUrl.toString(),
+                "package"                   : "${rootProject.group}.${subProject.name.toLowerCase()}".toString(),
+                "forgeVersion"              : project.forgeVersion,
+                "minecraftVersion"          : project.minecraftVersion,
+                "supportedScenaVersionRange": project.supportedScenaVersionRange,
+                "scenaVersion"              : project.scenaVersion,
+                "fabricVersion"             : project.fabricVersion,
+                "fabricLoaderVersion"       : project.fabricLoaderVersion,
+        ]
+
+        return propertiesToExpand
+    }
+
+    subProject.ext.setupResourceProcessing = { copyTask ->
+        copyTask.rename({ fileName ->
+            if (fileName != "mixins.json") {
+                return fileName
+            } else {
+                return "${rootProject.name.toLowerCase()}.mixins.json"
+            }
+        })
+        copyTask.filesMatching(["META-INF/mods.toml", "pack.mcmeta", "mixins.json", "${rootProject.name.toLowerCase()}.mixins.json".toString(), "fabric.mod.json"]) {
+            filter(ReplaceTokens, tokens: getIdentifiers())
+        }
+        copyTask.getInputs().properties(getIdentifiers())
+    }
+
+    subProject.afterEvaluate {
+        if (subProject.tasks.build.enabled) {
+            subProject.publishing {
+                publications {
+                    mavenJava(MavenPublication) { pub ->
+                        artifactId "${rootProject.name}-${subProject.name}"
+
+                        from subProject.components.java
+
+                        pom {
+                            url = subProject.githubUrl
+                            licenses {
+                                license {
+                                    name = 'GNU GENERAL PUBLIC LICENSE Version 3'
+                                    url = 'https://www.gnu.org/licenses/gpl-3.0.en.html'
+                                }
+                            }
+                            developers {
+                                developer {
+                                    id = 'OrionDevelopment'
+                                    name = 'Marc Hermans'
+                                    email = 'marc.hermans@ldtteam.com'
+                                }
+                            }
+                            scm {
+                                connection = subProject.gitUrl
+                                developerConnection = subProject.gitConnectUrl
+                                url = subProject.projectUrl
+                            }
+                        }
+
+                        subProject.cleanMavenPublication(pub)
+                    }
+                }
+            }
+        }
+    }
+}
