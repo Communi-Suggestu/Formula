@@ -8,10 +8,10 @@ project.dependencies.minecraft "com.mojang:minecraft:${project.minecraftVersion}
 project.dependencies.modImplementation "net.fabricmc:fabric-loader:${project.fabricLoaderVersion}"
 project.dependencies.modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabricVersion}+${project.minecraftVersion}"
 project.dependencies.modImplementation "com.communi-suggestu.scena:scena-fabric:${project.scenaVersion}"
-project.dependencies.modImplementation "com.communi-suggestu.saecularia-caudices:saecularia-caudices-fabric:${project.scenaVersion}"
+project.dependencies.modImplementation "com.communi-suggestu.saecularia-caudices:saecularia-caudices-fabric:${project.saeculariaCaudicesVersion}"
 
 project.dependencies.include "com.communi-suggestu.scena:scena-fabric:${project.scenaVersion}"
-project.dependencies.include "com.communi-suggestu.saecularia-caudices:saecularia-caudices-fabric:${project.scenaVersion}"
+project.dependencies.include "com.communi-suggestu.saecularia-caudices:saecularia-caudices-fabric:${project.saeculariaCaudicesVersion}"
 
 project.dependencies.mappings loom.layered() { layer ->
     layer.officialMojangMappings()
