@@ -6,6 +6,8 @@ plugins {
     id 'org.parchmentmc.librarian.forgegradle'
 }
 
+repositories.mavenLocal()
+
 configurations.create("includedLibraries")
 configurations.implementation.extendsFrom configurations.includedLibraries
 
@@ -35,9 +37,12 @@ project.minecraft.runs {
 
 project.dependencies.minecraft "net.minecraftforge:forge:${project.minecraftVersion}-${project.forgeVersion}"
 project.dependencies.annotationProcessor "org.spongepowered:mixin:${project.mixinAnnotationProcessorVersion}:processor"
-project.dependencies.includedLibraries fg.deobf("com.communi-suggestu.scena:scena-forge:${project.scenaVersion}")
-project.dependencies.implementation fg.deobf("com.communi-suggestu.scena:scena-core:${project.scenaVersion}")
-project.dependencies.implementation fg.deobf("com.communi-suggestu.saecularia-caudices:saecularia-caudices-core:${project.saeculariaCaudicesVersion}")
+project.dependencies.includedLibraries fg.deobf("com.communi-suggestu.scena:scena-forge:${project.scenaVersion}") {
+    jarJar.pin(it, project.scenaVersion)
+    jarJar.ranged(it, buildSupportedVersionRange(project.scenaVersion))
+}
+project.dependencies.compileOnly fg.deobf("com.communi-suggestu.scena:scena-core:${project.scenaVersion}")
+project.dependencies.compileOnly fg.deobf("com.communi-suggestu.saecularia-caudices:saecularia-caudices-core:${project.saeculariaCaudicesVersion}")
 
 project.tasks.processResources.from project(":common").file("accesstransformer.cfg")
 setupResourceProcessing(project.tasks.processResources)
@@ -63,4 +68,7 @@ jarJar {
         include(dependency("com.communi-suggestu.scena:scena-forge"))
     }
 }
+
+tasks.jarJar.archiveClassifier.set("");
+tasks.jar.archiveClassifier.set("slim");
 

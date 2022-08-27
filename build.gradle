@@ -47,6 +47,14 @@ subprojects { subProject ->
     subProject.dependencies.compileOnly "org.jetbrains:annotations:${project.jetbrainsAnnotationsVersion}"
     subProject.dependencies.testCompileOnly "org.jetbrains:annotations:${project.jetbrainsAnnotationsVersion}"
 
+    subProject.ext.setupEmbeddedPublishing = { mavenPublication ->
+        subProject.afterEvaluate { evaluatedSubProject ->
+            if (evaluatedSubProject.getPlugins().hasPlugin("net.minecraftforge.gradle")) {
+                evaluatedSubProject.jarJar.component(mavenPublication)
+            }
+        }
+    }
+
     subProject.ext.cleanMavenPublication = { mavenPublication ->
         //Replace all deobf dependencies with normal jar references.
         mavenPublication.pom.withXml { xmlProvider ->
@@ -102,6 +110,17 @@ subprojects { subProject ->
         subProject.tasks.processResources.duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     }
 
+    subProject.ext.determineNextMajorVersion = { v ->
+        def components = v.split("\\.")
+        def major = components[0].toInteger()
+        return "${major + 1}.0.0".toString()
+    }
+
+    subProject.ext.buildSupportedVersionRange = { v ->
+        def nextMajorComponent = determineNextMajorVersion(v)
+        return "[${v},${nextMajorComponent})".toString()
+    }
+
     subProject.ext.getIdentifiers = {
         def propertiesToExpand = [
                 "version"                   : project.version,
@@ -113,7 +132,7 @@ subprojects { subProject ->
                 "package"                   : "${rootProject.group}.${subProject.name.toLowerCase()}".toString(),
                 "forgeVersion"              : project.forgeVersion,
                 "minecraftVersion"          : project.minecraftVersion,
-                "supportedScenaVersionRange": project.supportedScenaVersionRange,
+                "supportedScenaVersionRange": buildSupportedVersionRange(project.scenaVersion),
                 "scenaVersion"              : project.scenaVersion,
                 "fabricVersion"             : project.fabricVersion,
                 "fabricLoaderVersion"       : project.fabricLoaderVersion,
@@ -168,6 +187,7 @@ subprojects { subProject ->
                         }
 
                         subProject.cleanMavenPublication(pub)
+                        subProject.setupEmbeddedPublishing(pub)
                     }
                 }
             }
