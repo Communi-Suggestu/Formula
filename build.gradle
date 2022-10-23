@@ -92,7 +92,7 @@ subprojects { Project subProject ->
         def propertiesToExpand = [
                 "version"                   : project.version,
                 "name"                      : rootProject.name.toString(),
-                "id"                        : rootProject.name.toLowerCase().toString(),
+                "id"                        : rootProject.modId,
                 "description"               : (rootProject.description == null ? "" : rootProject.description).toString(),
                 "author"                    : rootProject.author.toString(),
                 "sources"                   : rootProject.githubUrl.toString(),
