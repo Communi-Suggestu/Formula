@@ -2,6 +2,7 @@ import org.gradle.plugin.use.internal.DefaultPluginId
 
 pluginManagement.repositories.mavenLocal()
 pluginManagement.repositories.maven { url = 'https://maven.minecraftforge.net' }
+pluginManagement.repositories.maven { url = 'https://maven.fabricmc.net'}
 pluginManagement.repositories.maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
 pluginManagement.repositories.maven { url = 'https://maven.parchmentmc.org' }
 pluginManagement.repositories.mavenCentral()

@@ -10,6 +10,7 @@ repositories.mavenLocal()
 
 configurations.create("includedLibraries")
 configurations.implementation.extendsFrom configurations.includedLibraries
+configurations.includedLibraries.transitive false
 
 project.addCoreProject()
 
@@ -22,10 +23,48 @@ project.minecraft.runs {
         clientRun.ideaModule "${rootProject.name.toLowerCase()}.${project.name.toLowerCase()}.main"
         clientRun.taskName 'Client'
         clientRun.arg "--mixin=${rootProject.name.toLowerCase()}.mixins.json"
-        jvmArgs "-Dmixin.debug=true", "-Dmixin.debug.export=true"
-        property 'mixin.env.remapRefMap', 'true'
-        property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
-        mods { modsContainer ->
+        clientRun.jvmArgs "-Dmixin.debug=true", "-Dmixin.debug.export=true"
+        clientRun.property 'mixin.env.remapRefMap', 'true'
+        clientRun.property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
+        clientRun.mods { modsContainer ->
+            modsContainer.create(rootProject.name.toLowerCase(), {
+                source sourceSets.main
+                source project(":common").sourceSets.main
+                source project(":core").sourceSets.main
+            })
+        }
+    }
+
+    server { serverRun ->
+        serverRun.workingDirectory project.file('run')
+        serverRun.ideaModule "${rootProject.name.toLowerCase()}.${project.name.toLowerCase()}.main"
+        serverRun.taskName 'Server'
+        serverRun.arg "--mixin=${rootProject.name.toLowerCase()}.mixins.json"
+        serverRun.jvmArgs "-Dmixin.debug=true", "-Dmixin.debug.export=true"
+        serverRun.property 'mixin.env.remapRefMap', 'true'
+        serverRun.property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
+        serverRun.mods { modsContainer ->
+            modsContainer.create(rootProject.name.toLowerCase(), {
+                source sourceSets.main
+                source project(":common").sourceSets.main
+                source project(":core").sourceSets.main
+            })
+        }
+    }
+
+    data { dataRun ->
+        dataRun.workingDirectory project.file('run')
+        dataRun.ideaModule "${rootProject.name.toLowerCase()}.${project.name.toLowerCase()}.main"
+        dataRun.taskName "Data"
+        dataRun.arg "--mixin=${rootProject.name.toLowerCase()}.mixins.json"
+        dataRun.property 'mixin.env.remapRefMap', 'true'
+        dataRun.property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
+        dataRun.args '--mod', "${rootProject.name.toLowerCase()}",
+                '--output', project(":core").file("src/datagen/generated"),
+                '--existing', file('src/main/resources/'),
+                '--existing', project(":core").file('src/main/resources/'),
+                '--existing-mod', 'scena'
+        dataRun.mods { modsContainer ->
             modsContainer.create(rootProject.name.toLowerCase(), {
                 source sourceSets.main
                 source project(":common").sourceSets.main
@@ -41,10 +80,11 @@ project.dependencies.includedLibraries fg.deobf("com.communi-suggestu.scena:scen
     jarJar.pin(it, project.scenaVersion)
     jarJar.ranged(it, buildSupportedVersionRange(project.scenaVersion))
 }
-project.dependencies.compileOnly fg.deobf("com.communi-suggestu.scena:scena-core:${project.scenaVersion}")
 project.dependencies.compileOnly fg.deobf("com.communi-suggestu.saecularia-caudices:saecularia-caudices-core:${project.saeculariaCaudicesVersion}")
 
-project.tasks.processResources.from project(":common").file("accesstransformer.cfg")
+project.tasks.processResources.from (project(":common").file("accesstransformer.cfg")) {
+    into 'META-INF'
+}
 setupResourceProcessing(project.tasks.processResources)
 
 project.mixin.config "${rootProject.name.toLowerCase()}.mixins.json"
@@ -69,6 +109,17 @@ jarJar {
     }
 }
 
+reobf {
+    jarJar {}
+}
+
+afterEvaluate {
+    tasks.jar.finalizedBy tasks.reobfJar
+    tasks.jarJar.finalizedBy tasks.reobfJarJar
+    tasks.reobfJarJar.enabled = true
+}
+
 tasks.jarJar.archiveClassifier.set("");
 tasks.jar.archiveClassifier.set("slim");
+tasks.build.dependsOn tasks.jarJar
 
